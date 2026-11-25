@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4ecdf">
+  <title>하루 한 표정 · 감정달력</title>
+  <style>
+    :root {
+      --paper: #f4ecdf;
+      --card: #fffcf6;
+      --ink: #42382d;
+      --muted: #746755;
+      --line: #d9cdbb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    }
+    main { max-width: 960px; margin: auto; padding: clamp(12px, 4vw, 40px); }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+    .eyebrow { font-size: 11px; letter-spacing: .17em; font-weight: 750; color: #896443; }
+    h1 { margin: 4px 0; font-size: clamp(28px, 5vw, 48px); letter-spacing: -.07em; }
+    p { margin: 4px 0; color: var(--muted); font-size: 14px; }
+    .toolbar, nav, footer { display: flex; align-items: center; gap: 5px; }
+    .toolbar { justify-content: space-between; margin: 18px 0 12px; }
+    h2 { margin: 0; font-size: clamp(20px, 4vw, 30px); letter-spacing: -.05em; }
+    button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+    nav button, footer button {
+      min-height: 44px; min-width: 42px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: 24px; background: var(--card);
+    }
+    button:focus-visible { outline: 3px solid #725336; outline-offset: -3px; }
+    .sheet { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--card); }
+    .week, #grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .week { text-align: center; padding: 8px 0; font-size: 12px; }
+    .week span:first-child, .sunday { color: #a24838; }
+    #grid { gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+    .day, .blank {
+      position: relative; height: clamp(55px, 10vh, 96px);
+      padding: 0; border: 0; background: var(--card);
+    }
+    .blank { background: #f3ede2; }
+    @media (hover: hover) {
+      .day:hover { box-shadow: inset 0 0 0 2px #b39d80; }
+    }
+    .number {
+      position: absolute; left: 4px; top: 3px;
+      font-size: clamp(10px, 1.6vw, 14px); font-weight: 650;
+    }
+    .today .number { background: #584b39; color: white; border-radius: 12px; padding: 0 5px; }
+    .face {
+      display: grid; place-items: center; height: 100%; padding-top: 9px;
+      font-size: min(9.5vw, 7.5vh, 68px); line-height: 1;
+    }
+    #legend { display: flex; flex-wrap: wrap; gap: 5px 15px; margin-top: 14px; font-size: 13px; }
+    #status { font-size: 12px; margin-top: 10px; }
+    dialog {
+      width: min(410px, calc(100% - 24px)); max-height: 90vh; overflow: auto;
+      padding: 20px; background: #fffaf1; color: var(--ink);
+      border: 1px solid var(--line); border-radius: 20px;
+      box-shadow: 0 18px 65px #3e301d33;
+    }
+    dialog::backdrop { background: #382d235e; }
+    dialog h2 { margin: 5px 0 16px; font-size: 22px; }
+    #choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    #choices button { border: 2px solid transparent; border-radius: 13px; padding: 8px 1px; font-size: 13px; }
+    #choices button[aria-pressed="true"] { border-color: #705c43; }
+    #choices b { display: block; font-size: 32px; }
+    footer { justify-content: space-between; margin-top: 16px; }
+    button:disabled { opacity: .45; cursor: default; }
+    @media (max-width: 480px) {
+      main { padding: 14px 10px; }
+      .toolbar { margin-top: 12px; }
+      nav button { padding: 0 9px; }
+    }
+    .mood-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -.13em; }
+    .face .mood-icon { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">✺ MOOD JOURNAL</div>
+      <h1>하루 한 표정</h1>
+      <p>날짜를 눌러 그날의 기분을 남겨 보세요.</p>
+    </header>
+
+    <section aria-labelledby="month">
+      <div class="toolbar">
+        <h2 id="month" aria-live="polite"></h2>
+        <nav aria-label="달력 이동">
+          <button id="prev" aria-label="이전 달">‹</button>
+          <button id="now">이번 달</button>
+          <button id="next" aria-label="다음 달">›</button>
+        </nav>
+      </div>
+      <div class="sheet">
+        <div class="week" aria-hidden="true">
+          <span>일</span><span>월</span><span>화</span><span>수</span>
+          <span>목</span><span>금</span><span>토</span>
+        </div>
+        <div id="grid"></div>
+      </div>
+      <div id="legend" aria-label="감정 범례"></div>
+      <p id="status" role="status"></p>
+    </section>
+  </main>
+
+  <dialog id="picker" aria-labelledby="question" aria-describedby="pickedDate">
+    <div class="eyebrow" id="pickedDate"></div>
+    <h2 id="question">이날의 기분은 어땠나요?</h2>
+    <div id="choices"></div>
+    <footer>
+      <button id="erase">기록 지우기</button>
+      <button id="closePicker">닫기</button>
+    </footer>
+  </dialog>
+
+  <script>
+    "use strict";
+
+    const moods = [
+      ["😄", "기쁨",     "#fff0b8"],
+      ["😡", "화남",     "#ffdbd0"],
+      ["😢", "슬픔",     "#d9ebfa"],
+      ["😐", "그냥그럼", "#eee6d7"],
+      ["😮", "놀람",     "#ffe0b8"],
+      ["😞", "우울함",   "#e7dff1"],
+      ["😌", "뿌듯함",   "#dcecd6"]
+    ];
+    // 브라우저의 기본 이모지 색 대신 동일한 벡터 얼굴을 세 위치에서 사용한다.
+    const faceArt = [
+      ['#FFD344', '<path d="M13 23q4-7 8 0m6 0q4-7 8 0"/><path d="M13 29h22q-2 11-11 11T13 29Z" fill="#603D21"/>'],
+      ['#F26259', '<path d="m11 16 9 4m8 0 9-4"/><circle cx="17" cy="24" r="2"/><circle cx="31" cy="24" r="2"/><path d="M16 35q8-9 16 0"/>'],
+      ['#69B8F4', '<path d="m12 20 7-3m10 0 7 3"/><circle cx="17" cy="23" r="1.8"/><circle cx="31" cy="23" r="1.8"/><path d="M17 36q7-8 14 0"/><path d="M11 25q-7 9 0 9t0-9Z" fill="#E1F6FF" stroke="none"/>'],
+      ['#B9BEC2', '<circle cx="16" cy="21" r="2"/><circle cx="32" cy="21" r="2"/><path d="M17 32h14"/>'],
+      ['#FFA044', '<path d="M11 15q4-4 9-1m8 0q5-3 9 1"/><circle cx="16" cy="21" r="2.6"/><circle cx="32" cy="21" r="2.6"/><ellipse cx="24" cy="33" rx="4.5" ry="6" fill="#603D21"/>'],
+      ['#9DA0A6', '<path d="M11 23q5 2 9-4m8 0q4 6 9 4M19 35q5-5 10 0"/>'],
+      ['#F59CC1', '<path d="M11 20q5 7 10 0m6 0q5 7 10 0M17 30q7 8 15-1"/><path d="m10 28 3-1m22 0 3-1" stroke="#C46190"/>']
+    ];
+    function moodIcon(index) {
+      const [color, features] = faceArt[index];
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'mood-icon');
+      svg.setAttribute('viewBox', '0 0 48 48');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.innerHTML = `<circle cx="24" cy="24" r="22" fill="${color}"/><g stroke="#453734" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">${features.replaceAll('<circle ', '<circle fill="#453734" ')}</g>`;
+      return svg;
+    }
+    const $ = id => document.getElementById(id);
+    const storageKey = "haru-mood-calendar-v1";
+    const currentMonth = () => {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    };
+    let view = currentMonth();
+    let records = {};
+    let activeDate = "";
+    let canSave = true;
+
+    try {
+      const data = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      if (data && typeof data === "object" && !Array.isArray(data)) records = data;
+    } catch {
+      canSave = false;
+    }
+
+    function render() {
+      const year = view.getFullYear();
+      const month = view.getMonth();
+      const start = view.getDay();
+      const days = new Date(year, month + 1, 0).getDate();
+      const today = new Date();
+      const cells = Math.ceil((start + days) / 7) * 7;
+      let count = 0;
+
+      $("month").textContent = `${year}년 ${month + 1}월`;
+      $("grid").replaceChildren();
+
+      for (let i = 0; i < cells; i++) {
+        const day = i - start + 1;
+        if (day < 1 || day > days) {
+          const blank = document.createElement("div");
+          blank.className = "blank";
+          $("grid").append(blank);
+          continue;
+        }
+
+        const key = `${year}-${month + 1}-${day}`;
+        const label = `${year}년 ${month + 1}월 ${day}일 ${"일월화수목금토"[i % 7]}요일`;
+        const value = records[key];
+        const mood = Number.isInteger(value) ? moods[value] : null;
+        const button = document.createElement("button");
+        button.id = "day-" + key;
+        button.className = "day" + (i % 7 === 0 ? " sunday" : "");
+        button.setAttribute("aria-haspopup", "dialog");
+        button.setAttribute("aria-label", label + ", " + (mood ? mood[1] + " 변경" : "감정 선택"));
+
+        const number = document.createElement("span");
+        number.className = "number";
+        number.textContent = day;
+        button.append(number);
+
+        if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+          button.classList.add("today");
+          button.setAttribute("aria-current", "date");
+        }
+        if (mood) {
+          const face = document.createElement("span");
+          face.className = "face";
+          face.append(moodIcon(value));
+          button.style.background = mood[2];
+          button.append(face);
+          count++;
+        }
+        button.onclick = () => openPicker(key, label, mood ? value : null);
+        $("grid").append(button);
+      }
+
+      $("status").textContent = `${month + 1}월의 기록 ${count} / ${days}일 · ` +
+        (canSave ? "이 브라우저에 자동 저장됩니다."
+                 : "저장소를 사용할 수 없어 현재 화면에서만 기록이 유지됩니다.");
+    }
+
+    function openPicker(key, label, value) {
+      activeDate = key;
+      $("pickedDate").textContent = label;
+      $("erase").disabled = value === null;
+      Array.from($("choices").children).forEach((button, index) => {
+        button.setAttribute("aria-pressed", String(index === value));
+      });
+      $("picker").showModal();
+      $("choices").children[value ?? 0].focus();
+    }
+
+    function save(value) {
+      if (value === null) delete records[activeDate];
+      else records[activeDate] = value;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(records));
+        canSave = true;
+      } catch {
+        canSave = false;
+      }
+      $("picker").close();
+      render();
+      $("day-" + activeDate).focus();
+    }
+
+    moods.forEach(([emoji, name, color], index) => {
+      const choice = document.createElement("button");
+      const face = document.createElement("b");
+      face.append(moodIcon(index));
+      face.setAttribute("aria-hidden", "true");
+      choice.append(face, name);
+      choice.style.background = color;
+      choice.onclick = () => save(index);
+      $("choices").append(choice);
+
+      const item = document.createElement("span");
+      item.append(moodIcon(index), ` ${name}`);
+      $("legend").append(item);
+    });
+
+    function moveMonth(amount) {
+      view.setMonth(view.getMonth() + amount);
+      render();
+    }
+    $("prev").onclick = () => moveMonth(-1);
+    $("next").onclick = () => moveMonth(1);
+    $("now").onclick = () => { view = currentMonth(); render(); };
+    $("erase").onclick = () => save(null);
+    $("closePicker").onclick = () => $("picker").close();
+    render();
+  </script>
+</body>
+</html>
